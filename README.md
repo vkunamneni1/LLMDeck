@@ -45,6 +45,10 @@ Made in Onshape w/ models from Grabcad
 
 ## Firmware
 All firmware was developed in VSCode (w/ KMK). FIRMWARE IS UNTESTED AND WILL PROBABLY NOT WORK. API keys are not included yet (I will add them when I assemble LLMDeck).
+- API calls to OpenAI, Google, Meta to utilize LLM functions
+- WIFI connection needed
+- Data stored in tmp directory
+- UNTESTED
 
 ## BOM
 - 1x Seeed XIAO RP2040
