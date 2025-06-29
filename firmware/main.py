@@ -24,7 +24,6 @@ import socketpool
 import wifi
 
 keyboard = KMKKeyboard()
-
 keyboard.col_pins = (board.A0, board.A1, board.A2)
 keyboard.row_pins = (board.D3, board.D2, board.D1)
 keyboard.diode_orientation = DiodeOrientation.COL2ROW
@@ -33,22 +32,15 @@ encoder = EncoderHandler()
 encoder.pins = ((board.RX, board.TX, board.D0, False),)
 keyboard.modules.append(encoder)
 
-state = {
-    "temp": 0.5,
-    "llm": "gpt",
-    "status": "Ready",
-    "lastResult": ""
-}
+state = {"temp":0.5,"llm":"gpt","status":"Ready","lastResult":""}
 
-def setupDisplay():
+def dispSetup():
     displayio.release_displays()
     i2c = board.I2C()
     bus = displayio.I2CDisplay(i2c, device_address=0x3C)
     oled = SSD1306(bus, width=128, height=32)
-
     splash = displayio.Group()
     oled.show(splash)
-
     text = label.Label(
         terminalio.FONT,
         text="LLM Deck v1.0",
@@ -56,177 +48,152 @@ def setupDisplay():
         x=2, y=8
     )
     splash.append(text)
-
     return oled, text
 
-display, textArea = setupDisplay()
-
+display, textArea = dispSetup()
 pixels = neopixel.NeoPixel(board.A3, 3, brightness=0.3, auto_write=False)
 
-def updateDisplay():
-    textArea.text = (
-        f"LLM:{state['llm'].upper()} T:{state['temp']:.1f}\n{state['status']}"
-    )
+def updDisp():
+    textArea.text = f"LLM:{state['llm'].upper()} T:{state['temp']:.1f}\n{state['status']}"
 
-def flashLeds(color=(0, 255, 0)):
-    pixels.fill(color)
+def ledBlink(c=(0,255,0)):
+    pixels.fill(c)
     pixels.show()
     time.sleep(0.1)
-    pixels.fill((0, 0, 0))
+    pixels.fill((0,0,0))
     pixels.show()
 
-def getClipboard():
-    result = subprocess.run(
-        ["xclip", "-o", "-selection", "clipboard"],
-        capture_output=True, text=True, timeout=3
-    )
-    return result.stdout.strip() if result.returncode == 0 else "No clipboard"
+def clipGet():
+    r = subprocess.run(["xclip","-o","-selection","clipboard"],capture_output=True,text=True,timeout=3)
+    return r.stdout.strip() if r.returncode==0 else "No clipboard"
 
-def setClipboard(text):
-    subprocess.run(
-        ["xclip", "-selection", "clipboard"],
-        input=text, text=True, timeout=3
-    )
+def clipSet(t):
+    subprocess.run(["xclip","-selection","clipboard"],input=t,text=True,timeout=3)
     return True
 
-def saveResult(text):
-    with open("/tmp/llmdeck_out.txt", "w") as f:
-        f.write(text)
+def saveTxt(t):
+    with open("/tmp/llmdeck_out.txt","w") as f:
+        f.write(t)
     return True
 
-def callOpenai(prompt, content):
-    return f"OpenAI response to: {prompt[:50]}..."
+def callGpt(p,c):
+    return f"OpenAI response to: {p[:50]}..."
 
-def callGemini(prompt, content):
-    return f"Gemini response to: {prompt[:50]}..."
+def callGem(p,c):
+    return f"Gemini response to: {p[:50]}..."
 
-def callLlama(prompt, content):
-    url = "https://ai.hackclub.com/chat/completions"
-    headers = {"Content-Type": "application/json"}
-    body = {
-        "messages": [
-            {"role": "user", "content": f"{prompt}\n\n{content}"}
-        ]
+def callLlam(p,c):
+    url="https://ai.hackclub.com/chat/completions"
+    headers={"Content-Type":"application/json"}
+    body={"messages":[{"role":"user","content":f"{p}\n\n{c}"}]}
+    resp=requests.post(url,headers=headers,json=body)
+    d=resp.json()
+    return d["choices"][0]["message"]["content"]
+
+def doProc(a):
+    prompts={
+        "summarize":"Summarize this text concisely (without sacrificing clarity) -->",
+        "expand":"Expand and elaborate on this text (without sacrificing clarity) -->",
+        "humanize":"Rewrite this text to sound more human, real, and natural (without sacrificing clarity) --> "
     }
-    response = requests.post(url, headers=headers, json=body)
-    data = response.json()
-    return data["choices"][0]["message"]["content"]
-
-def processText(action):
-    prompts = {
-        "summarize": "Summarize this text concisely (without sacrificing clarity) -->",
-        "expand": "Expand and elaborate on this text (without sacrificing clarity) -->",
-        "humanize": "Rewrite this text to sound more human, real, and natural (without sacrificing clarity) --> "
-    }
-
-    state["status"] = f"{action.title()}..."
-    updateDisplay()
-    flashLeds((255, 255, 0))
-
-    content = getClipboard()
-    prompt = prompts.get(action, "Process this text:")
-
-    if state["llm"] == "gpt":
-        result = callOpenai(prompt, content)
-    elif state["llm"] == "gemini":
-        result = callGemini(prompt, content)
-    elif state["llm"] == "llama":
-        result = callLlama(prompt, content)
+    state["status"]=f"{a.title()}..."
+    updDisp()
+    ledBlink((255,255,0))
+    content=clipGet()
+    prompt=prompts.get(a,"Process this text:")
+    if state["llm"]=="gpt":
+        result=callGpt(prompt,content)
+    elif state["llm"]=="gemini":
+        result=callGem(prompt,content)
+    elif state["llm"]=="llama":
+        result=callLlam(prompt,content)
     else:
-        result = "No LLM selected"
-
-    state["lastResult"] = result
-    saveResult(result)
-    setClipboard(result)
-
-    state["status"] = "Done!"
-    updateDisplay()
-    flashLeds((0, 255, 0))
-
+        result="No LLM selected"
+    state["lastResult"]=result
+    saveTxt(result)
+    clipSet(result)
+    state["status"]="Done!"
+    updDisp()
+    ledBlink((0,255,0))
     time.sleep(2)
-    state["status"] = "Ready"
-    updateDisplay()
+    state["status"]="Ready"
+    updDisp()
 
-def switchLlm(name):
-    state["llm"] = name
-    state["status"] = f"→ {name.upper()}"
-    updateDisplay()
-    flashLeds((0, 0, 255))
+def swLlm(n):
+    state["llm"]=n
+    state["status"]=f"→ {n.upper()}"
+    updDisp()
+    ledBlink((0,0,255))
     time.sleep(1)
-    state["status"] = "Ready"
-    updateDisplay()
+    state["status"]="Ready"
+    updDisp()
 
-def openBrowser(name):
-    urls = {
-        "gpt": "https://chatgpt.com",
-        "gemini": "https://gemini.google.com",
-        "llama": "https://www.meta.ai"
+def openBrws(n):
+    urls={
+        "gpt":"https://chatgpt.com",
+        "gemini":"https://gemini.google.com",
+        "llama":"https://www.meta.ai"
     }
-
-    state["status"] = "Opening..."
-    updateDisplay()
-
-    subprocess.Popen(["xdg-open", urls.get(name, urls["gpt"])])
-    state["status"] = "Opened"
-    flashLeds((255, 0, 255))
-
-    updateDisplay()
+    state["status"]="Opening..."
+    updDisp()
+    subprocess.Popen(["xdg-open",urls.get(n,urls["gpt"])])
+    state["status"]="Opened"
+    ledBlink((255,0,255))
+    updDisp()
     time.sleep(1.5)
-    state["status"] = "Ready"
-    updateDisplay()
+    state["status"]="Ready"
+    updDisp()
 
-def encoderHandler(key, keyboard, *args):
-    direction = args[0] if args else 0
-    oldTemp = state["temp"]
-    state["temp"] += direction * 0.1
-    state["temp"] = max(0.0, min(1.0, state["temp"]))
-    if oldTemp != state["temp"]:
-        updateDisplay()
+def encHand(k,keyboard,*a):
+    d=a[0] if a else 0
+    t=state["temp"]
+    state["temp"]+=d*0.1
+    state["temp"]=max(0.0,min(1.0,state["temp"]))
+    if t!=state["temp"]:
+        updDisp()
 
-def macroOpenChat():
-    openBrowser(state["llm"])
+def mOpen():
+    openBrws(state["llm"])
 
-def macroCloseChat():
-    state["status"] = "Closing"
-    updateDisplay()
-    subprocess.run(["pkill", "firefox"])
-    state["status"] = "Closed"
-    updateDisplay()
+def mClose():
+    state["status"]="Closing"
+    updDisp()
+    subprocess.run(["pkill","firefox"])
+    state["status"]="Closed"
+    updDisp()
     time.sleep(1)
-    state["status"] = "Ready"
-    updateDisplay()
+    state["status"]="Ready"
+    updDisp()
 
-def macroSummarize():
-    processText("summarize")
+def mSum():
+    doProc("summarize")
 
-def macroExpand():
-    processText("expand")
+def mExp():
+    doProc("expand")
 
-def macroHumanize():
-    processText("humanize")
+def mHum():
+    doProc("humanize")
 
-def macroGpt():
-    switchLlm("gpt")
+def mGpt():
+    swLlm("gpt")
 
-def macroGemini():
-    switchLlm("gemini")
+def mGem():
+    swLlm("gemini")
 
-def macroLlama():
-    switchLlm("llama")
+def mLlam():
+    swLlm("llama")
 
-keyboard.keymap = [
+keyboard.keymap=[
     [
-        KC.MACRO(macroOpenChat), KC.MACRO(macroCloseChat), KC.MACRO(macroSummarize),
-        KC.MACRO(macroExpand), KC.MACRO(macroHumanize), KC.MACRO(macroGpt),
-        KC.MACRO(macroGemini), KC.MACRO(macroLlama), KC.NO,
+        KC.MACRO(mOpen),KC.MACRO(mClose),KC.MACRO(mSum),
+        KC.MACRO(mExp),KC.MACRO(mHum),KC.MACRO(mGpt),
+        KC.MACRO(mGem),KC.MACRO(mLlam),
     ]
 ]
 
-keyboard.encoder_handler = encoderHandler
+keyboard.encoder_handler=encHand
 
-updateDisplay()
-flashLeds()
-
-if __name__ == "__main__":
-    print("LLMDeck starting...")
-    keyboard.go()
+updDisp()
+ledBlink()
+print("LLMDeck starting...")
+keyboard.go()
