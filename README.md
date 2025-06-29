@@ -12,6 +12,7 @@ It runs on a XIAO RP2040 microcontroller with KMK firmware to control multiple L
 - 128×32 0.91" OLED Display (displays current LLM/function)
 - 3 RGB LEDs displaying whether LLMDeck is powered on
 - 3D-printed case designed in **Onshape**
+- Silkscreen of many LLMS and Hack Club!
 
 ## Overall CAD Model
 ![Screenshot 2025-06-29 at 5 18 55 PM](https://github.com/user-attachments/assets/e8ee0596-2062-456e-914a-1f5740d5cf95)
@@ -24,8 +25,12 @@ Made in Onshape w/ models from Grabcad
 (also featured on back of PCB!)
 
 ### PCB Design
+#### With filled zone
 ![Screenshot 2025-06-29 at 5 21 42 PM](https://github.com/user-attachments/assets/db763846-0fb9-4eb1-a672-e33387d16b1c)
-(with filled zone)
+
+#### Without filled zone
+![Screenshot 2025-06-29 at 5 33 28 PM](https://github.com/user-attachments/assets/eecda298-e15c-45b1-aae4-05b680023e78)
+
 
 ### 3D PCB Design
 #### Front
